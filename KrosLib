@@ -1,8 +1,9 @@
 --[[
     ╔═══════════════════════════════════════════════════════════╗
-    ║                   KROSLIB V2.6 FIXED                      ║
+    ║                   KROSLIB V2.6 COMPLETE                   ║
     ║              Premium UI Library for Roblox                ║
     ║                    Created by: Kors                       ║
+    ║                      PART 1 of 2                          ║
     ╚═══════════════════════════════════════════════════════════╝
 ]]
 
@@ -13,9 +14,13 @@ local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TextService = game:GetService("TextService")
 local LocalPlayer = Players.LocalPlayer
 
--- Configuration
+-- ═══════════════════════════════════════════════════════════════
+-- CONFIGURATION
+-- ═══════════════════════════════════════════════════════════════
+
 KrosLib.Settings = {
     DefaultIcon = 7733964719,
     AvatarVisible = true,
@@ -31,7 +36,9 @@ KrosLib.Settings = {
         Success = Color3.fromRGB(40, 255, 40),
         Error = Color3.fromRGB(255, 40, 40),
         Warning = Color3.fromRGB(255, 200, 40),
-        Info = Color3.fromRGB(40, 150, 255)
+        Info = Color3.fromRGB(40, 150, 255),
+        Hover = Color3.fromRGB(55, 55, 70),
+        Active = Color3.fromRGB(65, 65, 85)
     },
     NotificationIcons = {
         Success = "✅",
@@ -47,11 +54,22 @@ KrosLib.Settings = {
         Close = 550209561,
         ToggleOn = 12221967,
         ToggleOff = 12221976
+    },
+    NotificationSounds = {
+        Success = 5274478755,
+        Error = 5332472758,
+        Warning = 5332680175,
+        Info = 5332874858,
+        Default = 6026984224
     }
 }
 
--- Utility Functions
+-- ═══════════════════════════════════════════════════════════════
+-- UTILITY FUNCTIONS
+-- ═══════════════════════════════════════════════════════════════
+
 local function CreateTween(object, properties, duration, easingStyle, easingDirection)
+    if not object or not object.Parent then return end
     local tween = TweenService:Create(
         object,
         TweenInfo.new(
@@ -75,44 +93,133 @@ end
 local function AddUIStroke(parent, color, thickness, transparency)
     local stroke = Instance.new("UIStroke")
     stroke.Color = color or Color3.fromRGB(255, 255, 255)
-    stroke.Transparency = transparency or 0.9
+    stroke.Transparency = transparency or 0.85
     stroke.Thickness = thickness or 1
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     stroke.Parent = parent
     return stroke
 end
 
-local function AddGlassEffect(frame)
+local function AddUIPadding(parent, top, bottom, left, right)
+    local padding = Instance.new("UIPadding")
+    padding.PaddingTop = UDim.new(0, top or 0)
+    padding.PaddingBottom = UDim.new(0, bottom or 0)
+    padding.PaddingLeft = UDim.new(0, left or 0)
+    padding.PaddingRight = UDim.new(0, right or 0)
+    padding.Parent = parent
+    return padding
+end
+
+local function AddGlassEffect(frame, cornerRadius)
     frame.BackgroundTransparency = 0.15
     frame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
-    AddUICorner(frame, 10)
-    local stroke = AddUIStroke(frame, Color3.fromRGB(255, 255, 255), 1, 0.8)
+    AddUICorner(frame, cornerRadius or 10)
+    AddUIStroke(frame, Color3.fromRGB(255, 255, 255), 1, 0.8)
     return frame
 end
 
+local function AddShadow(parent)
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.BackgroundTransparency = 1
+    shadow.Position = UDim2.new(0, -15, 0, -15)
+    shadow.Size = UDim2.new(1, 30, 1, 30)
+    shadow.ZIndex = parent.ZIndex - 1
+    shadow.Image = "rbxassetid://6014261993"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(49, 49, 450, 450)
+    shadow.Parent = parent
+    return shadow
+end
+
 local function PlaySound(soundId)
-    if soundId then
+    if not soundId then return end
+    pcall(function()
         local sound = Instance.new("Sound")
         sound.SoundId = "rbxassetid://" .. tostring(soundId)
-        sound.Volume = 0.5
+        sound.Volume = 0.3
         sound.Parent = CoreGui
         sound:Play()
         sound.Ended:Connect(function()
             sound:Destroy()
         end)
-    end
+    end)
 end
 
--- Notification System
+local function MakeDraggable(frame, handle)
+    local dragging, dragStart, startPos = false, nil, nil
+    
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+local function CreateHoverEffect(button, normalTransparency, hoverTransparency)
+    normalTransparency = normalTransparency or 0.5
+    hoverTransparency = hoverTransparency or 0.35
+    
+    button.MouseEnter:Connect(function()
+        CreateTween(button, {BackgroundTransparency = hoverTransparency}, 0.15)
+    end)
+    
+    button.MouseLeave:Connect(function()
+        CreateTween(button, {BackgroundTransparency = normalTransparency}, 0.15)
+    end)
+end
+
+local function CreateClickEffect(button, callback)
+    button.MouseButton1Click:Connect(function()
+        PlaySound(KrosLib.Settings.Sounds.Click)
+        CreateTween(button, {BackgroundTransparency = 0.2}, 0.08)
+        task.wait(0.08)
+        CreateTween(button, {BackgroundTransparency = 0.5}, 0.15)
+        if callback then
+            callback()
+        end
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- NOTIFICATION SYSTEM
+-- ═══════════════════════════════════════════════════════════════
+
 local NotificationHolder = nil
+local NotificationCount = 0
 
 function KrosLib:CreateNotificationHolder()
-    if NotificationHolder then return end
+    if NotificationHolder and NotificationHolder.Parent then return end
     
     NotificationHolder = Instance.new("ScreenGui")
     NotificationHolder.Name = "KrosLibNotifications"
     NotificationHolder.ResetOnSpawn = false
     NotificationHolder.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationHolder.Parent = CoreGui or LocalPlayer.PlayerGui
+    NotificationHolder.DisplayOrder = 999
+    
+    pcall(function()
+        NotificationHolder.Parent = CoreGui
+    end)
+    if not NotificationHolder.Parent then
+        NotificationHolder.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
     
     local Container = Instance.new("Frame")
     Container.Name = "NotificationContainer"
@@ -125,6 +232,7 @@ function KrosLib:CreateNotificationHolder()
     ListLayout.Padding = UDim.new(0, 10)
     ListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
     ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
     ListLayout.Parent = Container
 end
 
@@ -136,58 +244,74 @@ function KrosLib:Notify(options)
     local Duration = options.Duration or KrosLib.Settings.NotificationDuration
     local Type = options.Type or "Default"
     
+    NotificationCount = NotificationCount + 1
+    
+    -- Play sound
+    if KrosLib.Settings.NotificationSounds and KrosLib.Settings.NotificationSounds[Type] then
+        PlaySound(KrosLib.Settings.NotificationSounds[Type])
+    end
+    
+    -- Create notification frame
     local Notification = Instance.new("Frame")
-    Notification.Size = UDim2.new(0, 300, 0, 80)
+    Notification.Name = "Notification_" .. NotificationCount
+    Notification.Size = UDim2.new(0, 300, 0, 0)
     Notification.Position = UDim2.new(1, 320, 0, 0)
     Notification.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-    Notification.BackgroundTransparency = 0.1
+    Notification.BackgroundTransparency = 0.08
     Notification.ClipsDescendants = true
+    Notification.LayoutOrder = NotificationCount
     Notification.Parent = NotificationHolder:FindFirstChild("NotificationContainer")
+    AddUICorner(Notification, 12)
+    AddUIStroke(Notification, Color3.fromRGB(255, 255, 255), 1, 0.85)
     
-    AddGlassEffect(Notification)
+    -- Shadow
+    AddShadow(Notification)
     
+    -- Accent bar
     local AccentBar = Instance.new("Frame")
     AccentBar.Size = UDim2.new(0, 4, 1, 0)
     AccentBar.Position = UDim2.new(0, 0, 0, 0)
     AccentBar.BorderSizePixel = 0
+    AccentBar.BackgroundTransparency = 0
     AccentBar.Parent = Notification
+    AddUICorner(AccentBar, 2)
     
-    if Type == "Success" then
-        AccentBar.BackgroundColor3 = KrosLib.Settings.Colors.Success
-    elseif Type == "Error" then
-        AccentBar.BackgroundColor3 = KrosLib.Settings.Colors.Error
-    elseif Type == "Warning" then
-        AccentBar.BackgroundColor3 = KrosLib.Settings.Colors.Warning
-    elseif Type == "Info" then
-        AccentBar.BackgroundColor3 = KrosLib.Settings.Colors.Info
-    else
-        AccentBar.BackgroundColor3 = KrosLib.Settings.Colors.Accent
-    end
+    local typeColors = {
+        Success = KrosLib.Settings.Colors.Success,
+        Error = KrosLib.Settings.Colors.Error,
+        Warning = KrosLib.Settings.Colors.Warning,
+        Info = KrosLib.Settings.Colors.Info
+    }
+    AccentBar.BackgroundColor3 = typeColors[Type] or KrosLib.Settings.Colors.Accent
     
-    local Icon = Instance.new("TextLabel")
-    Icon.Size = UDim2.new(0, 40, 0, 40)
-    Icon.Position = UDim2.new(0, 15, 0.5, -20)
-    Icon.BackgroundTransparency = 1
-    Icon.Text = KrosLib.Settings.NotificationIcons[Type] or KrosLib.Settings.NotificationIcons.Default
-    Icon.TextColor3 = KrosLib.Settings.Colors.Text
-    Icon.TextScaled = true
-    Icon.Font = Enum.Font.Gotham
-    Icon.Parent = Notification
+    -- Icon
+    local IconLabel = Instance.new("TextLabel")
+    IconLabel.Size = UDim2.new(0, 30, 0, 30)
+    IconLabel.Position = UDim2.new(0, 15, 0, 12)
+    IconLabel.BackgroundTransparency = 1
+    IconLabel.Text = KrosLib.Settings.NotificationIcons[Type] or KrosLib.Settings.NotificationIcons.Default
+    IconLabel.TextColor3 = KrosLib.Settings.Colors.Text
+    IconLabel.TextScaled = true
+    IconLabel.Font = Enum.Font.Gotham
+    IconLabel.Parent = Notification
     
+    -- Title
     local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(0, 220, 0, 20)
-    TitleLabel.Position = UDim2.new(0, 60, 0, 10)
+    TitleLabel.Size = UDim2.new(1, -85, 0, 18)
+    TitleLabel.Position = UDim2.new(0, 55, 0, 10)
     TitleLabel.BackgroundTransparency = 1
     TitleLabel.Text = Title
     TitleLabel.TextColor3 = KrosLib.Settings.Colors.Text
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.TextSize = 14
     TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
     TitleLabel.Parent = Notification
     
+    -- Content
     local ContentLabel = Instance.new("TextLabel")
-    ContentLabel.Size = UDim2.new(0, 220, 0, 35)
-    ContentLabel.Position = UDim2.new(0, 60, 0, 30)
+    ContentLabel.Size = UDim2.new(1, -85, 0, 36)
+    ContentLabel.Position = UDim2.new(0, 55, 0, 30)
     ContentLabel.BackgroundTransparency = 1
     ContentLabel.Text = Content
     ContentLabel.TextColor3 = KrosLib.Settings.Colors.TextDark
@@ -198,9 +322,19 @@ function KrosLib:Notify(options)
     ContentLabel.Font = Enum.Font.Gotham
     ContentLabel.Parent = Notification
     
+    -- Calculate height based on content
+    local contentHeight = 0
+    pcall(function()
+        local textSize = TextService:GetTextSize(Content, 12, Enum.Font.Gotham, Vector2.new(215, math.huge))
+        contentHeight = textSize.Y
+    end)
+    local totalHeight = math.max(70, 38 + contentHeight + 10)
+    ContentLabel.Size = UDim2.new(1, -85, 0, contentHeight + 5)
+    
+    -- Close button
     local CloseButton = Instance.new("TextButton")
-    CloseButton.Size = UDim2.new(0, 20, 0, 20)
-    CloseButton.Position = UDim2.new(1, -25, 0, 5)
+    CloseButton.Size = UDim2.new(0, 24, 0, 24)
+    CloseButton.Position = UDim2.new(1, -30, 0, 6)
     CloseButton.BackgroundTransparency = 1
     CloseButton.Text = "×"
     CloseButton.TextColor3 = KrosLib.Settings.Colors.TextDark
@@ -208,224 +342,363 @@ function KrosLib:Notify(options)
     CloseButton.Font = Enum.Font.GothamBold
     CloseButton.Parent = Notification
     
+    CloseButton.MouseEnter:Connect(function()
+        CreateTween(CloseButton, {TextColor3 = KrosLib.Settings.Colors.Error}, 0.1)
+    end)
+    CloseButton.MouseLeave:Connect(function()
+        CreateTween(CloseButton, {TextColor3 = KrosLib.Settings.Colors.TextDark}, 0.1)
+    end)
+    
+    -- Progress bar
     local ProgressBar = Instance.new("Frame")
-    ProgressBar.Size = UDim2.new(1, 0, 0, 2)
-    ProgressBar.Position = UDim2.new(0, 0, 1, -2)
+    ProgressBar.Size = UDim2.new(1, 0, 0, 3)
+    ProgressBar.Position = UDim2.new(0, 0, 1, -3)
     ProgressBar.BackgroundColor3 = AccentBar.BackgroundColor3
+    ProgressBar.BackgroundTransparency = 0.3
     ProgressBar.BorderSizePixel = 0
     ProgressBar.Parent = Notification
+    AddUICorner(ProgressBar, 1)
     
+    -- Animate in: first expand height, then slide in
+    Notification.Size = UDim2.new(0, 300, 0, totalHeight)
     CreateTween(Notification, {Position = UDim2.new(0, 0, 0, 0)}, 0.5, Enum.EasingStyle.Back)
     
+    -- Dismiss function
     local dismissed = false
     local function dismiss()
         if dismissed then return end
         dismissed = true
-        CreateTween(Notification, {Position = UDim2.new(1, 320, 0, 0)}, 0.3)
-        task.wait(0.3)
-        Notification:Destroy()
+        
+        CreateTween(Notification, {
+            Position = UDim2.new(1, 320, 0, 0),
+            BackgroundTransparency = 1
+        }, 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+        task.wait(0.35)
+        
+        if Notification and Notification.Parent then
+            Notification:Destroy()
+        end
     end
     
+    -- Close button click
     CloseButton.MouseButton1Click:Connect(dismiss)
     
-    local dragging = false
-    local startX = 0
+    -- Swipe to dismiss
+    local swipeDragging = false
+    local swipeStartX = 0
     
     Notification.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            startX = input.Position.X
+            swipeDragging = true
+            swipeStartX = input.Position.X
         end
     end)
     
     Notification.InputEnded:Connect(function(input)
-        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and dragging then
-            dragging = false
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and swipeDragging then
+            swipeDragging = false
             local endX = input.Position.X
-            if endX - startX > 50 then
+            if endX - swipeStartX > 60 then
                 dismiss()
             end
         end
     end)
     
-    CreateTween(ProgressBar, {Size = UDim2.new(0, 0, 0, 2)}, Duration, Enum.EasingStyle.Linear)
+    -- Progress bar animation
+    CreateTween(ProgressBar, {Size = UDim2.new(0, 0, 0, 3)}, Duration, Enum.EasingStyle.Linear)
     
-    task.wait(Duration)
-    dismiss()
+    -- Auto dismiss
+    task.delay(Duration, dismiss)
+    
+    return Notification
 end
 
--- Window System
+-- ═══════════════════════════════════════════════════════════════
+-- WINDOW SYSTEM - MAIN STRUCTURE
+-- ═══════════════════════════════════════════════════════════════
+
 function KrosLib:CreateWindow(options)
     local Window = {}
     Window.Tabs = {}
     Window.CurrentTab = nil
+    Window.Flags = {}
     
+    -- Create ScreenGui
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "KrosLib"
+    ScreenGui.Name = "KrosLib_Main"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = CoreGui or LocalPlayer.PlayerGui
+    ScreenGui.DisplayOrder = 100
+    
+    pcall(function()
+        ScreenGui.Parent = CoreGui
+    end)
+    if not ScreenGui.Parent then
+        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    -- Main frame
+    local windowWidth = (options.Size and options.Size.X.Offset) or 650
+    local windowHeight = (options.Size and options.Size.Y.Offset) or 520
     
     local Main = Instance.new("Frame")
     Main.Name = "Main"
-    Main.Size = options.Size or UDim2.new(0, 650, 0, 520)
-    Main.Position = UDim2.new(0.5, -325, 0.5, -260)
+    Main.Size = UDim2.new(0, windowWidth, 0, windowHeight)
+    Main.Position = UDim2.new(0.5, -windowWidth/2, 0.5, -windowHeight/2)
     Main.BackgroundColor3 = KrosLib.Settings.Colors.Primary
+    Main.BackgroundTransparency = 0.05
     Main.ClipsDescendants = true
     Main.Parent = ScreenGui
+    AddUICorner(Main, 12)
+    AddUIStroke(Main, Color3.fromRGB(255, 255, 255), 1, 0.85)
+    AddShadow(Main)
     
-    AddGlassEffect(Main)
+    -- Open animation
+    Main.Size = UDim2.new(0, 0, 0, 0)
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    PlaySound(KrosLib.Settings.Sounds.Open)
+    CreateTween(Main, {
+        Size = UDim2.new(0, windowWidth, 0, windowHeight),
+        Position = UDim2.new(0.5, -windowWidth/2, 0.5, -windowHeight/2)
+    }, 0.5, Enum.EasingStyle.Back)
     
-    local dragging, dragStart, startPos
-    
-    Main.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = Main.Position
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
+    -- ═══════════════════════════════════════════════════════════
+    -- TOP BAR
+    -- ═══════════════════════════════════════════════════════════
     
     local TopBar = Instance.new("Frame")
     TopBar.Name = "TopBar"
-    TopBar.Size = UDim2.new(1, 0, 0, 40)
+    TopBar.Size = UDim2.new(1, 0, 0, 42)
     TopBar.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-    TopBar.BackgroundTransparency = 0.5
+    TopBar.BackgroundTransparency = 0.3
+    TopBar.BorderSizePixel = 0
     TopBar.Parent = Main
-    AddUICorner(TopBar, 10)
+    AddUICorner(TopBar, 12)
     
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(0, 200, 1, 0)
-    Title.Position = UDim2.new(0, 50, 0, 0)
-    Title.BackgroundTransparency = 1
-    Title.Text = options.Name or "KrosLib"
-    Title.TextColor3 = KrosLib.Settings.Colors.Text
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 16
-    Title.Parent = TopBar
+    -- Make draggable from top bar
+    MakeDraggable(Main, TopBar)
     
-    if options.Subtitle then
-        local Subtitle = Instance.new("TextLabel")
-        Subtitle.Size = UDim2.new(0, 200, 0, 12)
-        Subtitle.Position = UDim2.new(0, 250, 0.5, -6)
-        Subtitle.BackgroundTransparency = 1
-        Subtitle.Text = options.Subtitle
-        Subtitle.TextColor3 = KrosLib.Settings.Colors.TextDark
-        Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-        Subtitle.Font = Enum.Font.Gotham
-        Subtitle.TextSize = 11
-        Subtitle.Parent = TopBar
-    end
-    
+    -- Window icon
     if options.Icon then
-        local Icon = Instance.new("ImageLabel")
-        Icon.Size = UDim2.new(0, 25, 0, 25)
-        Icon.Position = UDim2.new(0, 12, 0.5, -12)
-        Icon.BackgroundTransparency = 1
-        Icon.Image = options.Icon
-        Icon.Parent = TopBar
+        local WindowIcon = Instance.new("ImageLabel")
+        WindowIcon.Size = UDim2.new(0, 22, 0, 22)
+        WindowIcon.Position = UDim2.new(0, 14, 0.5, -11)
+        WindowIcon.BackgroundTransparency = 1
+        WindowIcon.Image = options.Icon
+        WindowIcon.Parent = TopBar
     end
     
-    local CloseButton = Instance.new("TextButton")
-    CloseButton.Size = UDim2.new(0, 30, 0, 30)
-    CloseButton.Position = UDim2.new(1, -35, 0.5, -15)
-    CloseButton.BackgroundTransparency = 1
-    CloseButton.Text = "×"
-    CloseButton.TextColor3 = KrosLib.Settings.Colors.Text
-    CloseButton.TextSize = 24
-    CloseButton.Font = Enum.Font.GothamBold
-    CloseButton.Parent = TopBar
+    -- Window title
+    local WindowTitle = Instance.new("TextLabel")
+    WindowTitle.Size = UDim2.new(0, 200, 0, 20)
+    WindowTitle.Position = UDim2.new(0, options.Icon and 44 or 14, 0, options.Subtitle and 5 or 11)
+    WindowTitle.BackgroundTransparency = 1
+    WindowTitle.Text = options.Name or "KrosLib"
+    WindowTitle.TextColor3 = KrosLib.Settings.Colors.Text
+    WindowTitle.TextXAlignment = Enum.TextXAlignment.Left
+    WindowTitle.Font = Enum.Font.GothamBold
+    WindowTitle.TextSize = 15
+    WindowTitle.Parent = TopBar
     
-    CloseButton.MouseButton1Click:Connect(function()
-        CreateTween(Main, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.3)
-        task.wait(0.3)
+    -- Window subtitle
+    if options.Subtitle then
+        local WindowSubtitle = Instance.new("TextLabel")
+        WindowSubtitle.Size = UDim2.new(0, 200, 0, 14)
+        WindowSubtitle.Position = UDim2.new(0, options.Icon and 44 or 14, 0, 24)
+        WindowSubtitle.BackgroundTransparency = 1
+        WindowSubtitle.Text = options.Subtitle
+        WindowSubtitle.TextColor3 = KrosLib.Settings.Colors.TextDark
+        WindowSubtitle.TextXAlignment = Enum.TextXAlignment.Left
+        WindowSubtitle.Font = Enum.Font.Gotham
+        WindowSubtitle.TextSize = 11
+        WindowSubtitle.Parent = TopBar
+    end
+    
+    -- Close button
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+    CloseBtn.Position = UDim2.new(1, -38, 0.5, -15)
+    CloseBtn.BackgroundColor3 = KrosLib.Settings.Colors.Error
+    CloseBtn.BackgroundTransparency = 0.9
+    CloseBtn.Text = "×"
+    CloseBtn.TextColor3 = KrosLib.Settings.Colors.Text
+    CloseBtn.TextSize = 22
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.Parent = TopBar
+    AddUICorner(CloseBtn, 6)
+    
+    CloseBtn.MouseEnter:Connect(function()
+        CreateTween(CloseBtn, {BackgroundTransparency = 0.3, TextColor3 = KrosLib.Settings.Colors.Error}, 0.15)
+    end)
+    CloseBtn.MouseLeave:Connect(function()
+        CreateTween(CloseBtn, {BackgroundTransparency = 0.9, TextColor3 = KrosLib.Settings.Colors.Text}, 0.15)
+    end)
+    CloseBtn.MouseButton1Click:Connect(function()
+        PlaySound(KrosLib.Settings.Sounds.Close)
+        CreateTween(Main, {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            BackgroundTransparency = 1
+        }, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        task.wait(0.35)
         ScreenGui:Destroy()
     end)
     
-    local MinimizeButton = Instance.new("TextButton")
-    MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
-    MinimizeButton.Position = UDim2.new(1, -70, 0.5, -15)
-    MinimizeButton.BackgroundTransparency = 1
-    MinimizeButton.Text = "—"
-    MinimizeButton.TextColor3 = KrosLib.Settings.Colors.Text
-    MinimizeButton.TextSize = 20
-    MinimizeButton.Font = Enum.Font.GothamBold
-    MinimizeButton.Parent = TopBar
+    -- Minimize button
+    local MinBtn = Instance.new("TextButton")
+    MinBtn.Size = UDim2.new(0, 30, 0, 30)
+    MinBtn.Position = UDim2.new(1, -74, 0.5, -15)
+    MinBtn.BackgroundColor3 = KrosLib.Settings.Colors.Warning
+    MinBtn.BackgroundTransparency = 0.9
+    MinBtn.Text = "—"
+    MinBtn.TextColor3 = KrosLib.Settings.Colors.Text
+    MinBtn.TextSize = 18
+    MinBtn.Font = Enum.Font.GothamBold
+    MinBtn.Parent = TopBar
+    AddUICorner(MinBtn, 6)
+    
+    MinBtn.MouseEnter:Connect(function()
+        CreateTween(MinBtn, {BackgroundTransparency = 0.3, TextColor3 = KrosLib.Settings.Colors.Warning}, 0.15)
+    end)
+    MinBtn.MouseLeave:Connect(function()
+        CreateTween(MinBtn, {BackgroundTransparency = 0.9, TextColor3 = KrosLib.Settings.Colors.Text}, 0.15)
+    end)
     
     local minimized = false
-    MinimizeButton.MouseButton1Click:Connect(function()
+    MinBtn.MouseButton1Click:Connect(function()
+        PlaySound(KrosLib.Settings.Sounds.Click)
         minimized = not minimized
         if minimized then
-            CreateTween(Main, {Size = UDim2.new(0, 650, 0, 40)}, 0.3)
+            CreateTween(Main, {Size = UDim2.new(0, windowWidth, 0, 42)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         else
-            CreateTween(Main, {Size = options.Size or UDim2.new(0, 650, 0, 520)}, 0.3)
+            CreateTween(Main, {Size = UDim2.new(0, windowWidth, 0, windowHeight)}, 0.3, Enum.EasingStyle.Back)
         end
     end)
     
-    local TabHolder = Instance.new("Frame")
-    TabHolder.Name = "TabHolder"
-    TabHolder.Size = UDim2.new(0, 140, 1, -50)
-    TabHolder.Position = UDim2.new(0, 5, 0, 45)
-    TabHolder.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-    TabHolder.BackgroundTransparency = 0.7
-    TabHolder.Parent = Main
-    AddGlassEffect(TabHolder)
+    -- ═══════════════════════════════════════════════════════════
+    -- SIDEBAR (TAB HOLDER)
+    -- ═══════════════════════════════════════════════════════════
+    
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Name = "Sidebar"
+    Sidebar.Size = UDim2.new(0, 145, 1, -52)
+    Sidebar.Position = UDim2.new(0, 5, 0, 47)
+    Sidebar.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
+    Sidebar.BackgroundTransparency = 0.5
+    Sidebar.Parent = Main
+    AddUICorner(Sidebar, 10)
+    AddUIStroke(Sidebar, Color3.fromRGB(255, 255, 255), 1, 0.9)
+    
+    -- Avatar display
+    if KrosLib.Settings.AvatarVisible then
+        local AvatarHolder = Instance.new("Frame")
+        AvatarHolder.Size = UDim2.new(0, 50, 0, 50)
+        AvatarHolder.Position = UDim2.new(0.5, -25, 0, 8)
+        AvatarHolder.BackgroundColor3 = KrosLib.Settings.Colors.Primary
+        AvatarHolder.Parent = Sidebar
+        AddUICorner(AvatarHolder, 25)
+        AddUIStroke(AvatarHolder, KrosLib.Settings.Colors.Accent, 2, 0.5)
+        
+        local Avatar = Instance.new("ImageLabel")
+        Avatar.Size = UDim2.new(1, -4, 1, -4)
+        Avatar.Position = UDim2.new(0, 2, 0, 2)
+        Avatar.BackgroundTransparency = 1
+        Avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150"
+        Avatar.Parent = AvatarHolder
+        AddUICorner(Avatar, 23)
+        
+        local PlayerName = Instance.new("TextLabel")
+        PlayerName.Size = UDim2.new(1, -10, 0, 14)
+        PlayerName.Position = UDim2.new(0, 5, 0, 62)
+        PlayerName.BackgroundTransparency = 1
+        PlayerName.Text = LocalPlayer.DisplayName
+        PlayerName.TextColor3 = KrosLib.Settings.Colors.TextDark
+        PlayerName.Font = Enum.Font.Gotham
+        PlayerName.TextSize = 10
+        PlayerName.TextTruncate = Enum.TextTruncate.AtEnd
+        PlayerName.Parent = Sidebar
+    end
+    
+    -- Tab list with scrolling
+    local tabListTop = KrosLib.Settings.AvatarVisible and 80 or 8
     
     local TabList = Instance.new("ScrollingFrame")
-    TabList.Size = UDim2.new(1, -10, 1, -10)
-    TabList.Position = UDim2.new(0, 5, 0, 5)
+    TabList.Name = "TabList"
+    TabList.Size = UDim2.new(1, -12, 1, -(tabListTop + 8))
+    TabList.Position = UDim2.new(0, 6, 0, tabListTop)
     TabList.BackgroundTransparency = 1
     TabList.ScrollBarThickness = 3
     TabList.ScrollBarImageColor3 = KrosLib.Settings.Colors.Accent
     TabList.ScrollBarImageTransparency = 0.5
     TabList.CanvasSize = UDim2.new(0, 0, 0, 0)
     TabList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    TabList.Parent = TabHolder
+    TabList.Parent = Sidebar
     
     local TabListLayout = Instance.new("UIListLayout")
-    TabListLayout.Padding = UDim.new(0, 5)
+    TabListLayout.Padding = UDim.new(0, 4)
+    TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     TabListLayout.Parent = TabList
     
-    local ContentHolder = Instance.new("Frame")
-    ContentHolder.Name = "ContentHolder"
-    ContentHolder.Size = UDim2.new(1, -160, 1, -50)
-    ContentHolder.Position = UDim2.new(0, 150, 0, 45)
-    ContentHolder.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-    ContentHolder.BackgroundTransparency = 0.7
-    ContentHolder.ClipsDescendants = true
-    ContentHolder.Parent = Main
-    AddGlassEffect(ContentHolder)
+    -- ═══════════════════════════════════════════════════════════
+    -- CONTENT AREA
+    -- ═══════════════════════════════════════════════════════════
+    
+    local ContentArea = Instance.new("Frame")
+    ContentArea.Name = "ContentArea"
+    ContentArea.Size = UDim2.new(1, -162, 1, -52)
+    ContentArea.Position = UDim2.new(0, 155, 0, 47)
+    ContentArea.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
+    ContentArea.BackgroundTransparency = 0.5
+    ContentArea.ClipsDescendants = true
+    ContentArea.Parent = Main
+    AddUICorner(ContentArea, 10)
+    AddUIStroke(ContentArea, Color3.fromRGB(255, 255, 255), 1, 0.9)
+    
+    -- ═══════════════════════════════════════════════════════════
+    -- TOGGLE UI VISIBILITY
+    -- ═══════════════════════════════════════════════════════════
     
     local UIVisible = true
     UserInputService.InputBegan:Connect(function(input, processed)
         if not processed and input.KeyCode == KrosLib.Settings.ReopenKey then
             UIVisible = not UIVisible
-            Main.Visible = UIVisible
             
-            if not UIVisible then
+            if UIVisible then
+                Main.Visible = true
+                CreateTween(Main, {
+                    Size = UDim2.new(0, windowWidth, 0, windowHeight),
+                    Position = UDim2.new(0.5, -windowWidth/2, 0.5, -windowHeight/2),
+                    BackgroundTransparency = 0.05
+                }, 0.3, Enum.EasingStyle.Back)
+            else
                 KrosLib:Notify({
                     Title = "UI Hidden",
                     Content = "Press " .. KrosLib.Settings.ReopenKey.Name .. " to show UI",
                     Duration = 2,
                     Type = "Info"
                 })
+                CreateTween(Main, {
+                    Size = UDim2.new(0, 0, 0, 0),
+                    Position = UDim2.new(0.5, 0, 0.5, 0),
+                    BackgroundTransparency = 1
+                }, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+                task.wait(0.3)
+                Main.Visible = false
             end
         end
     end)
+
+    -- Store references
+    Window.Main = Main
+    Window.ScreenGui = ScreenGui
+    Window.Sidebar = Sidebar
+    Window.TabList = TabList
+    Window.ContentArea = ContentArea
+    Window.WindowWidth = windowWidth
+    Window.WindowHeight = windowHeight
+    -- ═══════════════════════════════════════════════════════════
+    -- CREATE TAB METHOD
+    -- ═══════════════════════════════════════════════════════════
     
     function Window:CreateTab(name, icon)
         local Tab = {}
@@ -433,22 +706,36 @@ function KrosLib:CreateWindow(options)
         Tab.Icon = icon
         Tab.Elements = {}
         
+        -- Tab button in sidebar
         local TabButton = Instance.new("TextButton")
-        TabButton.Name = name
-        TabButton.Size = UDim2.new(1, 0, 0, 35)
+        TabButton.Name = "Tab_" .. name
+        TabButton.Size = UDim2.new(1, -4, 0, 32)
         TabButton.BackgroundColor3 = KrosLib.Settings.Colors.Primary
-        TabButton.BackgroundTransparency = 0.5
-        TabButton.Text = (icon or "") .. " " .. name
+        TabButton.BackgroundTransparency = 0.6
+        TabButton.Text = (icon or "") .. "  " .. name
         TabButton.TextColor3 = KrosLib.Settings.Colors.TextDark
         TabButton.Font = Enum.Font.Gotham
-        TabButton.TextSize = 13
+        TabButton.TextSize = 12
+        TabButton.TextXAlignment = Enum.TextXAlignment.Left
         TabButton.Parent = TabList
         AddUICorner(TabButton, 6)
+        AddUIPadding(TabButton, 0, 0, 8, 0)
         
+        -- Active indicator line
+        local ActiveIndicator = Instance.new("Frame")
+        ActiveIndicator.Name = "ActiveIndicator"
+        ActiveIndicator.Size = UDim2.new(0, 3, 0.6, 0)
+        ActiveIndicator.Position = UDim2.new(0, -2, 0.2, 0)
+        ActiveIndicator.BackgroundColor3 = KrosLib.Settings.Colors.Accent
+        ActiveIndicator.BackgroundTransparency = 1
+        ActiveIndicator.Parent = TabButton
+        AddUICorner(ActiveIndicator, 2)
+        
+        -- Tab content scroll frame
         local TabContent = Instance.new("ScrollingFrame")
-        TabContent.Name = name .. "Content"
-        TabContent.Size = UDim2.new(1, -10, 1, -10)
-        TabContent.Position = UDim2.new(0, 5, 0, 5)
+        TabContent.Name = "TabContent_" .. name
+        TabContent.Size = UDim2.new(1, -12, 1, -12)
+        TabContent.Position = UDim2.new(0, 6, 0, 6)
         TabContent.BackgroundTransparency = 1
         TabContent.ScrollBarThickness = 3
         TabContent.ScrollBarImageColor3 = KrosLib.Settings.Colors.Accent
@@ -456,106 +743,190 @@ function KrosLib:CreateWindow(options)
         TabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
         TabContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
         TabContent.Visible = false
-        TabContent.Parent = ContentHolder
+        TabContent.Parent = ContentArea
         
         local ContentLayout = Instance.new("UIListLayout")
-        ContentLayout.Padding = UDim.new(0, 8)
+        ContentLayout.Padding = UDim.new(0, 6)
+        ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         ContentLayout.Parent = TabContent
         
-        local ContentPadding = Instance.new("UIPadding")
-        ContentPadding.PaddingRight = UDim.new(0, 5)
-        ContentPadding.Parent = TabContent
+        AddUIPadding(TabContent, 2, 8, 2, 8)
         
+        -- Select tab function
         local function selectTab()
+            -- Deselect all
             for _, tab in pairs(Window.Tabs) do
                 CreateTween(tab.Button, {
-                    BackgroundTransparency = 0.5,
+                    BackgroundTransparency = 0.6,
                     TextColor3 = KrosLib.Settings.Colors.TextDark
                 }, 0.2)
+                CreateTween(tab.Indicator, {BackgroundTransparency = 1}, 0.2)
                 
                 if tab.Content.Visible and tab.Content ~= TabContent then
-                    CreateTween(tab.Content, {BackgroundTransparency = 1}, 0.15)
-                    task.wait(0.15)
+                    -- Fade out old tab
+                    for _, child in pairs(tab.Content:GetChildren()) do
+                        if child:IsA("GuiObject") then
+                            pcall(function()
+                                CreateTween(child, {BackgroundTransparency = 1}, 0.1)
+                            end)
+                        end
+                    end
+                    task.wait(0.1)
                     tab.Content.Visible = false
                 end
             end
             
+            -- Select this tab
             CreateTween(TabButton, {
-                BackgroundTransparency = 0.2,
+                BackgroundTransparency = 0.3,
                 TextColor3 = KrosLib.Settings.Colors.Text
             }, 0.2)
+            CreateTween(ActiveIndicator, {BackgroundTransparency = 0}, 0.2)
             
+            -- Show content with fade in
             TabContent.Visible = true
-            TabContent.BackgroundTransparency = 1
-            CreateTween(TabContent, {BackgroundTransparency = 0}, 0.2)
+            TabContent.CanvasPosition = Vector2.new(0, 0)
+            
+            -- Animate children in
+            for i, child in pairs(TabContent:GetChildren()) do
+                if child:IsA("GuiObject") then
+                    pcall(function()
+                        child.BackgroundTransparency = 1
+                        task.wait(0.02)
+                        CreateTween(child, {BackgroundTransparency = child:GetAttribute("OriginalTransparency") or 0.5}, 0.2)
+                    end)
+                end
+            end
             
             Window.CurrentTab = Tab
         end
         
-        TabButton.MouseButton1Click:Connect(selectTab)
-        Tab.Select = selectTab
+        -- Tab button click
+        TabButton.MouseButton1Click:Connect(function()
+            PlaySound(KrosLib.Settings.Sounds.Click)
+            selectTab()
+        end)
         
+        -- Hover effects
+        TabButton.MouseEnter:Connect(function()
+            if Window.CurrentTab ~= Tab then
+                CreateTween(TabButton, {BackgroundTransparency = 0.45}, 0.1)
+            end
+        end)
+        TabButton.MouseLeave:Connect(function()
+            if Window.CurrentTab ~= Tab then
+                CreateTween(TabButton, {BackgroundTransparency = 0.6}, 0.1)
+            end
+        end)
+        
+        -- Store references
         Tab.Button = TabButton
         Tab.Content = TabContent
+        Tab.Indicator = ActiveIndicator
+        Tab.Select = selectTab
         
-        function Tab:CreateSection(name)
+        -- ═══════════════════════════════════════════════════════
+        -- SECTION
+        -- ═══════════════════════════════════════════════════════
+        
+        function Tab:CreateSection(sectionName)
             local Section = Instance.new("Frame")
-            Section.Size = UDim2.new(1, -10, 0, 25)
-            Section.BackgroundColor3 = KrosLib.Settings.Colors.Primary
-            Section.BackgroundTransparency = 0.7
+            Section.Size = UDim2.new(1, 0, 0, 28)
+            Section.BackgroundColor3 = KrosLib.Settings.Colors.Accent
+            Section.BackgroundTransparency = 0.85
             Section.Parent = TabContent
+            Section:SetAttribute("OriginalTransparency", 0.85)
             AddUICorner(Section, 6)
             
             local SectionLabel = Instance.new("TextLabel")
-            SectionLabel.Size = UDim2.new(1, -10, 1, 0)
-            SectionLabel.Position = UDim2.new(0, 5, 0, 0)
+            SectionLabel.Size = UDim2.new(1, -12, 1, 0)
+            SectionLabel.Position = UDim2.new(0, 6, 0, 0)
             SectionLabel.BackgroundTransparency = 1
-            SectionLabel.Text = name
+            SectionLabel.Text = "▸ " .. sectionName
             SectionLabel.TextColor3 = KrosLib.Settings.Colors.Text
             SectionLabel.TextXAlignment = Enum.TextXAlignment.Left
             SectionLabel.Font = Enum.Font.GothamBold
-            SectionLabel.TextSize = 13
+            SectionLabel.TextSize = 12
             SectionLabel.Parent = Section
             
             return Section
         end
         
+        -- ═══════════════════════════════════════════════════════
+        -- BUTTON
+        -- ═══════════════════════════════════════════════════════
+        
         function Tab:CreateButton(options)
+            local ButtonFrame = Instance.new("Frame")
+            ButtonFrame.Size = UDim2.new(1, 0, 0, 36)
+            ButtonFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
+            ButtonFrame.BackgroundTransparency = 0.5
+            ButtonFrame.Parent = TabContent
+            ButtonFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(ButtonFrame, 8)
+            AddUIStroke(ButtonFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
+            
             local Button = Instance.new("TextButton")
-            Button.Size = UDim2.new(1, -10, 0, 35)
-            Button.BackgroundColor3 = KrosLib.Settings.Colors.Primary
-            Button.BackgroundTransparency = 0.5
+            Button.Size = UDim2.new(1, 0, 1, 0)
+            Button.BackgroundTransparency = 1
             Button.Text = options.Name or "Button"
             Button.TextColor3 = KrosLib.Settings.Colors.Text
             Button.Font = Enum.Font.Gotham
             Button.TextSize = 13
-            Button.Parent = TabContent
-            AddGlassEffect(Button)
+            Button.Parent = ButtonFrame
+            AddUICorner(Button, 8)
+            
+            -- Icon support
+            if options.Icon then
+                Button.Text = "      " .. (options.Name or "Button")
+                Button.TextXAlignment = Enum.TextXAlignment.Left
+                
+                local BtnIcon = Instance.new("ImageLabel")
+                BtnIcon.Size = UDim2.new(0, 18, 0, 18)
+                BtnIcon.Position = UDim2.new(0, 10, 0.5, -9)
+                BtnIcon.BackgroundTransparency = 1
+                BtnIcon.Image = options.Icon
+                BtnIcon.Parent = ButtonFrame
+            end
+            
+            Button.MouseEnter:Connect(function()
+                CreateTween(ButtonFrame, {BackgroundTransparency = 0.35}, 0.12)
+            end)
+            Button.MouseLeave:Connect(function()
+                CreateTween(ButtonFrame, {BackgroundTransparency = 0.5}, 0.12)
+            end)
             
             Button.MouseButton1Click:Connect(function()
-                CreateTween(Button, {BackgroundTransparency = 0.3}, 0.1)
-                task.wait(0.1)
-                CreateTween(Button, {BackgroundTransparency = 0.5}, 0.1)
+                PlaySound(KrosLib.Settings.Sounds.Click)
+                CreateTween(ButtonFrame, {BackgroundTransparency = 0.2}, 0.08)
+                task.wait(0.08)
+                CreateTween(ButtonFrame, {BackgroundTransparency = 0.5}, 0.15)
                 
                 if options.Callback then
                     options.Callback()
                 end
             end)
             
-            return Button
+            return ButtonFrame
         end
+        
+        -- ═══════════════════════════════════════════════════════
+        -- TOGGLE
+        -- ═══════════════════════════════════════════════════════
         
         function Tab:CreateToggle(options)
             local ToggleFrame = Instance.new("Frame")
-            ToggleFrame.Size = UDim2.new(1, -10, 0, 35)
+            ToggleFrame.Size = UDim2.new(1, 0, 0, 36)
             ToggleFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
             ToggleFrame.BackgroundTransparency = 0.5
             ToggleFrame.Parent = TabContent
-            AddGlassEffect(ToggleFrame)
+            ToggleFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(ToggleFrame, 8)
+            AddUIStroke(ToggleFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
             
             local ToggleLabel = Instance.new("TextLabel")
-            ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
-            ToggleLabel.Position = UDim2.new(0, 10, 0, 0)
+            ToggleLabel.Size = UDim2.new(1, -70, 1, 0)
+            ToggleLabel.Position = UDim2.new(0, 12, 0, 0)
             ToggleLabel.BackgroundTransparency = 1
             ToggleLabel.Text = options.Name or "Toggle"
             ToggleLabel.TextColor3 = KrosLib.Settings.Colors.Text
@@ -564,155 +935,214 @@ function KrosLib:CreateWindow(options)
             ToggleLabel.TextSize = 13
             ToggleLabel.Parent = ToggleFrame
             
-            local ToggleButton = Instance.new("TextButton")
-            ToggleButton.Size = UDim2.new(0, 50, 0, 22)
-            ToggleButton.Position = UDim2.new(1, -60, 0.5, -11)
-            ToggleButton.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-            ToggleButton.Text = ""
-            ToggleButton.Parent = ToggleFrame
-            AddUICorner(ToggleButton, 11)
+            local ToggleButtonBG = Instance.new("Frame")
+            ToggleButtonBG.Size = UDim2.new(0, 44, 0, 22)
+            ToggleButtonBG.Position = UDim2.new(1, -54, 0.5, -11)
+            ToggleButtonBG.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
+            ToggleButtonBG.Parent = ToggleFrame
+            AddUICorner(ToggleButtonBG, 11)
             
             local ToggleCircle = Instance.new("Frame")
             ToggleCircle.Size = UDim2.new(0, 18, 0, 18)
             ToggleCircle.Position = UDim2.new(0, 2, 0.5, -9)
-            ToggleCircle.BackgroundColor3 = Color3.new(1, 1, 1)
-            ToggleCircle.Parent = ToggleButton
+            ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            ToggleCircle.Parent = ToggleButtonBG
             AddUICorner(ToggleCircle, 9)
+            
+            local ToggleClickArea = Instance.new("TextButton")
+            ToggleClickArea.Size = UDim2.new(1, 0, 1, 0)
+            ToggleClickArea.BackgroundTransparency = 1
+            ToggleClickArea.Text = ""
+            ToggleClickArea.Parent = ToggleFrame
             
             local toggled = options.CurrentValue or false
             
-            local function updateToggle()
+            local function updateVisual()
                 if toggled then
-                    CreateTween(ToggleButton, {BackgroundColor3 = KrosLib.Settings.Colors.Accent}, 0.2)
-                    CreateTween(ToggleCircle, {Position = UDim2.new(1, -20, 0.5, -9)}, 0.2)
+                    CreateTween(ToggleButtonBG, {BackgroundColor3 = KrosLib.Settings.Colors.Accent}, 0.2)
+                    CreateTween(ToggleCircle, {Position = UDim2.new(1, -20, 0.5, -9)}, 0.2, Enum.EasingStyle.Back)
                 else
-                    CreateTween(ToggleButton, {BackgroundColor3 = KrosLib.Settings.Colors.Secondary}, 0.2)
-                    CreateTween(ToggleCircle, {Position = UDim2.new(0, 2, 0.5, -9)}, 0.2)
+                    CreateTween(ToggleButtonBG, {BackgroundColor3 = KrosLib.Settings.Colors.Secondary}, 0.2)
+                    CreateTween(ToggleCircle, {Position = UDim2.new(0, 2, 0.5, -9)}, 0.2, Enum.EasingStyle.Back)
                 end
             end
             
-            updateToggle()
+            -- Set initial state without animation
+            if toggled then
+                ToggleButtonBG.BackgroundColor3 = KrosLib.Settings.Colors.Accent
+                ToggleCircle.Position = UDim2.new(1, -20, 0.5, -9)
+            end
             
-            ToggleButton.MouseButton1Click:Connect(function()
+            ToggleClickArea.MouseButton1Click:Connect(function()
                 toggled = not toggled
-                updateToggle()
+                PlaySound(toggled and KrosLib.Settings.Sounds.ToggleOn or KrosLib.Settings.Sounds.ToggleOff)
+                updateVisual()
                 if options.Callback then
                     options.Callback(toggled)
                 end
             end)
             
-            return {Frame = ToggleFrame, SetValue = function(val) toggled = val; updateToggle() end}
+            local ToggleObj = {
+                Frame = ToggleFrame,
+                SetValue = function(val)
+                    toggled = val
+                    updateVisual()
+                end,
+                GetValue = function()
+                    return toggled
+                end
+            }
+            
+            if options.Flag then
+                Window.Flags[options.Flag] = ToggleObj
+            end
+            
+            return ToggleObj
         end
+        
+        -- ═══════════════════════════════════════════════════════
+        -- SLIDER
+        -- ═══════════════════════════════════════════════════════
         
         function Tab:CreateSlider(options)
             local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size = UDim2.new(1, -10, 0, 50)
+            SliderFrame.Size = UDim2.new(1, 0, 0, 50)
             SliderFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
             SliderFrame.BackgroundTransparency = 0.5
             SliderFrame.Parent = TabContent
-            AddGlassEffect(SliderFrame)
+            SliderFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(SliderFrame, 8)
+            AddUIStroke(SliderFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
             
             local SliderLabel = Instance.new("TextLabel")
-            SliderLabel.Size = UDim2.new(0.5, 0, 0, 20)
-            SliderLabel.Position = UDim2.new(0, 10, 0, 5)
+            SliderLabel.Size = UDim2.new(0.6, 0, 0, 18)
+            SliderLabel.Position = UDim2.new(0, 12, 0, 6)
             SliderLabel.BackgroundTransparency = 1
             SliderLabel.Text = options.Name or "Slider"
             SliderLabel.TextColor3 = KrosLib.Settings.Colors.Text
             SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
             SliderLabel.Font = Enum.Font.Gotham
-            SliderLabel.TextSize = 13
+            SliderLabel.TextSize = 12
             SliderLabel.Parent = SliderFrame
             
+            local min = options.Range[1] or 0
+            local max = options.Range[2] or 100
+            local increment = options.Increment or 1
+            local value = options.CurrentValue or min
+            local suffix = options.Suffix or ""
+            
             local ValueLabel = Instance.new("TextLabel")
-            ValueLabel.Size = UDim2.new(0, 50, 0, 20)
-            ValueLabel.Position = UDim2.new(1, -60, 0, 5)
+            ValueLabel.Size = UDim2.new(0, 60, 0, 18)
+            ValueLabel.Position = UDim2.new(1, -72, 0, 6)
             ValueLabel.BackgroundTransparency = 1
-            ValueLabel.Text = tostring(options.CurrentValue or options.Range[1]) .. (options.Suffix or "")
-            ValueLabel.TextColor3 = KrosLib.Settings.Colors.Text
-            ValueLabel.Font = Enum.Font.Gotham
-            ValueLabel.TextSize = 13
+            ValueLabel.Text = tostring(value) .. suffix
+            ValueLabel.TextColor3 = KrosLib.Settings.Colors.Accent
+            ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            ValueLabel.Font = Enum.Font.GothamBold
+            ValueLabel.TextSize = 12
             ValueLabel.Parent = SliderFrame
             
             local SliderBar = Instance.new("Frame")
-            SliderBar.Size = UDim2.new(1, -20, 0, 4)
-            SliderBar.Position = UDim2.new(0, 10, 0, 35)
+            SliderBar.Size = UDim2.new(1, -24, 0, 6)
+            SliderBar.Position = UDim2.new(0, 12, 0, 34)
             SliderBar.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
             SliderBar.Parent = SliderFrame
-            AddUICorner(SliderBar, 2)
+            AddUICorner(SliderBar, 3)
             
             local SliderFill = Instance.new("Frame")
-            SliderFill.Size = UDim2.new(0, 0, 1, 0)
+            local initPercent = (value - min) / (max - min)
+            SliderFill.Size = UDim2.new(initPercent, 0, 1, 0)
             SliderFill.BackgroundColor3 = KrosLib.Settings.Colors.Accent
             SliderFill.Parent = SliderBar
-            AddUICorner(SliderFill, 2)
+            AddUICorner(SliderFill, 3)
             
-            local SliderButton = Instance.new("TextButton")
-            SliderButton.Size = UDim2.new(0, 12, 0, 12)
-            SliderButton.Position = UDim2.new(0, -6, 0.5, -6)
-            SliderButton.BackgroundColor3 = Color3.new(1, 1, 1)
-            SliderButton.Text = ""
-            SliderButton.Parent = SliderFill
-            AddUICorner(SliderButton, 6)
-            
-            local value = options.CurrentValue or options.Range[1]
-            local min = options.Range[1]
-            local max = options.Range[2]
-            local increment = options.Increment or 1
+            local SliderKnob = Instance.new("Frame")
+            SliderKnob.Size = UDim2.new(0, 14, 0, 14)
+            SliderKnob.Position = UDim2.new(1, -7, 0.5, -7)
+            SliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            SliderKnob.Parent = SliderFill
+            AddUICorner(SliderKnob, 7)
+            AddUIStroke(SliderKnob, KrosLib.Settings.Colors.Accent, 2, 0.3)
             
             local function updateSlider()
-                local percent = (value - min) / (max - min)
-                CreateTween(SliderFill, {Size = UDim2.new(percent, 0, 1, 0)}, 0.1)
-                ValueLabel.Text = tostring(value) .. (options.Suffix or "")
+                local percent = math.clamp((value - min) / (max - min), 0, 1)
+                CreateTween(SliderFill, {Size = UDim2.new(percent, 0, 1, 0)}, 0.08)
+                ValueLabel.Text = tostring(value) .. suffix
             end
             
-            updateSlider()
+            -- Slider interaction
+            local sliderDragging = false
             
-            local dragging = false
+            local SliderClickArea = Instance.new("TextButton")
+            SliderClickArea.Size = UDim2.new(1, 0, 0, 20)
+            SliderClickArea.Position = UDim2.new(0, 0, 0, 27)
+            SliderClickArea.BackgroundTransparency = 1
+            SliderClickArea.Text = ""
+            SliderClickArea.Parent = SliderFrame
             
-            SliderButton.MouseButton1Down:Connect(function()
-                dragging = true
-            end)
-            
-            SliderBar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = true
-                end
+            SliderClickArea.MouseButton1Down:Connect(function()
+                sliderDragging = true
             end)
             
             UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    sliderDragging = false
                 end
             end)
             
             UserInputService.InputChanged:Connect(function(input)
-                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                if sliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                     local mousePos = UserInputService:GetMouseLocation().X
                     local barPos = SliderBar.AbsolutePosition.X
                     local barSize = SliderBar.AbsoluteSize.X
-                    local percent = math.clamp((mousePos - barPos) / barSize, 0, 1)
-                    value = math.floor((min + (max - min) * percent) / increment) * increment
-                    updateSlider()
-                    if options.Callback then
-                        options.Callback(value)
+                    if barSize > 0 then
+                        local percent = math.clamp((mousePos - barPos) / barSize, 0, 1)
+                        local rawValue = min + (max - min) * percent
+                        value = math.floor(rawValue / increment + 0.5) * increment
+                        value = math.clamp(value, min, max)
+                        updateSlider()
+                        if options.Callback then
+                            options.Callback(value)
+                        end
                     end
                 end
             end)
             
-            return {Frame = SliderFrame, SetValue = function(val) value = val; updateSlider() end}
+            local SliderObj = {
+                Frame = SliderFrame,
+                SetValue = function(val)
+                    value = math.clamp(val, min, max)
+                    updateSlider()
+                end,
+                GetValue = function()
+                    return value
+                end
+            }
+            
+            if options.Flag then
+                Window.Flags[options.Flag] = SliderObj
+            end
+            
+            return SliderObj
         end
+        
+        -- ═══════════════════════════════════════════════════════
+        -- INPUT
+        -- ═══════════════════════════════════════════════════════
         
         function Tab:CreateInput(options)
             local InputFrame = Instance.new("Frame")
-            InputFrame.Size = UDim2.new(1, -10, 0, 55)
+            InputFrame.Size = UDim2.new(1, 0, 0, 58)
             InputFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
             InputFrame.BackgroundTransparency = 0.5
             InputFrame.Parent = TabContent
-            AddGlassEffect(InputFrame)
+            InputFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(InputFrame, 8)
+            AddUIStroke(InputFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
             
             local InputLabel = Instance.new("TextLabel")
-            InputLabel.Size = UDim2.new(1, -10, 0, 20)
-            InputLabel.Position = UDim2.new(0, 5, 0, 3)
+            InputLabel.Size = UDim2.new(1, -12, 0, 18)
+            InputLabel.Position = UDim2.new(0, 6, 0, 4)
             InputLabel.BackgroundTransparency = 1
             InputLabel.Text = options.Name or "Input"
             InputLabel.TextColor3 = KrosLib.Settings.Colors.Text
@@ -722,10 +1152,10 @@ function KrosLib:CreateWindow(options)
             InputLabel.Parent = InputFrame
             
             local InputBox = Instance.new("TextBox")
-            InputBox.Size = UDim2.new(1, -20, 0, 25)
-            InputBox.Position = UDim2.new(0, 10, 0, 25)
+            InputBox.Size = UDim2.new(1, -16, 0, 26)
+            InputBox.Position = UDim2.new(0, 8, 0, 26)
             InputBox.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-            InputBox.BackgroundTransparency = 0.5
+            InputBox.BackgroundTransparency = 0.3
             InputBox.Text = ""
             InputBox.PlaceholderText = options.PlaceholderText or "Enter text..."
             InputBox.PlaceholderColor3 = KrosLib.Settings.Colors.TextDark
@@ -734,38 +1164,63 @@ function KrosLib:CreateWindow(options)
             InputBox.TextSize = 12
             InputBox.ClearTextOnFocus = false
             InputBox.Parent = InputFrame
-            AddUICorner(InputBox, 5)
+            AddUICorner(InputBox, 6)
+            AddUIStroke(InputBox, KrosLib.Settings.Colors.Accent, 1, 0.9)
+            
+            -- Focus effects
+            InputBox.Focused:Connect(function()
+                local stroke = InputBox:FindFirstChildOfClass("UIStroke")
+                if stroke then
+                    CreateTween(stroke, {Transparency = 0.3}, 0.2)
+                end
+            end)
             
             InputBox.FocusLost:Connect(function(enterPressed)
+                local stroke = InputBox:FindFirstChildOfClass("UIStroke")
+                if stroke then
+                    CreateTween(stroke, {Transparency = 0.9}, 0.2)
+                end
                 if options.Callback then
                     options.Callback(InputBox.Text)
                 end
             end)
             
-            return {
+            local InputObj = {
                 Frame = InputFrame,
                 Box = InputBox,
                 GetText = function()
                     return InputBox.Text
                 end,
                 SetText = function(text)
-                    InputBox.Text = text
+                    InputBox.Text = tostring(text)
                 end
             }
+            
+            if options.Flag then
+                Window.Flags[options.Flag] = InputObj
+            end
+            
+            return InputObj
         end
+        
+        -- ═══════════════════════════════════════════════════════
+        -- DROPDOWN
+        -- ═══════════════════════════════════════════════════════
         
         function Tab:CreateDropdown(options)
             local DropdownFrame = Instance.new("Frame")
-            DropdownFrame.Size = UDim2.new(1, -10, 0, 55)
+            DropdownFrame.Size = UDim2.new(1, 0, 0, 58)
             DropdownFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
             DropdownFrame.BackgroundTransparency = 0.5
             DropdownFrame.ClipsDescendants = true
             DropdownFrame.Parent = TabContent
-            AddGlassEffect(DropdownFrame)
+            DropdownFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(DropdownFrame, 8)
+            AddUIStroke(DropdownFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
             
             local DropdownLabel = Instance.new("TextLabel")
-            DropdownLabel.Size = UDim2.new(1, -10, 0, 20)
-            DropdownLabel.Position = UDim2.new(0, 5, 0, 3)
+            DropdownLabel.Size = UDim2.new(1, -12, 0, 18)
+            DropdownLabel.Position = UDim2.new(0, 6, 0, 4)
             DropdownLabel.BackgroundTransparency = 1
             DropdownLabel.Text = options.Name or "Dropdown"
             DropdownLabel.TextColor3 = KrosLib.Settings.Colors.Text
@@ -774,42 +1229,42 @@ function KrosLib:CreateWindow(options)
             DropdownLabel.TextSize = 12
             DropdownLabel.Parent = DropdownFrame
             
-            local selectedValue = options.CurrentOption or (options.Options and options.Options[1]) or "Select"
+            local selectedValue = options.CurrentOption or (options.Options and options.Options[1]) or "Select..."
             
             local DropdownButton = Instance.new("TextButton")
-            DropdownButton.Size = UDim2.new(1, -20, 0, 25)
-            DropdownButton.Position = UDim2.new(0, 10, 0, 25)
+            DropdownButton.Size = UDim2.new(1, -16, 0, 26)
+            DropdownButton.Position = UDim2.new(0, 8, 0, 26)
             DropdownButton.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-            DropdownButton.BackgroundTransparency = 0.5
+            DropdownButton.BackgroundTransparency = 0.3
             DropdownButton.Text = "  " .. selectedValue
             DropdownButton.TextColor3 = KrosLib.Settings.Colors.Text
             DropdownButton.TextXAlignment = Enum.TextXAlignment.Left
             DropdownButton.Font = Enum.Font.Gotham
             DropdownButton.TextSize = 12
             DropdownButton.Parent = DropdownFrame
-            AddUICorner(DropdownButton, 5)
+            AddUICorner(DropdownButton, 6)
             
-            local DropdownIcon = Instance.new("TextLabel")
-            DropdownIcon.Size = UDim2.new(0, 20, 0, 20)
-            DropdownIcon.Position = UDim2.new(1, -25, 0.5, -10)
-            DropdownIcon.BackgroundTransparency = 1
-            DropdownIcon.Text = "▼"
-            DropdownIcon.TextColor3 = KrosLib.Settings.Colors.TextDark
-            DropdownIcon.Font = Enum.Font.Gotham
-            DropdownIcon.TextSize = 10
-            DropdownIcon.Parent = DropdownButton
+            local DropdownArrow = Instance.new("TextLabel")
+            DropdownArrow.Size = UDim2.new(0, 20, 0, 20)
+            DropdownArrow.Position = UDim2.new(1, -25, 0.5, -10)
+            DropdownArrow.BackgroundTransparency = 1
+            DropdownArrow.Text = "▼"
+            DropdownArrow.TextColor3 = KrosLib.Settings.Colors.TextDark
+            DropdownArrow.Font = Enum.Font.Gotham
+            DropdownArrow.TextSize = 10
+            DropdownArrow.Parent = DropdownButton
             
             local DropdownList = Instance.new("ScrollingFrame")
-            DropdownList.Size = UDim2.new(1, -20, 0, 0)
-            DropdownList.Position = UDim2.new(0, 10, 0, 55)
+            DropdownList.Size = UDim2.new(1, -16, 0, 0)
+            DropdownList.Position = UDim2.new(0, 8, 0, 56)
             DropdownList.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-            DropdownList.BackgroundTransparency = 0.3
+            DropdownList.BackgroundTransparency = 0.2
             DropdownList.BorderSizePixel = 0
             DropdownList.ScrollBarThickness = 3
             DropdownList.ScrollBarImageColor3 = KrosLib.Settings.Colors.Accent
             DropdownList.Visible = false
             DropdownList.Parent = DropdownFrame
-            AddUICorner(DropdownList, 5)
+            AddUICorner(DropdownList, 6)
             
             local ListLayout = Instance.new("UIListLayout")
             ListLayout.Padding = UDim.new(0, 2)
@@ -817,27 +1272,29 @@ function KrosLib:CreateWindow(options)
             
             local expanded = false
             
-            local function updateDropdown()
+            local function toggleDropdown()
+                expanded = not expanded
                 if expanded then
-                    local itemCount = math.min(#options.Options, 5)
+                    local itemCount = math.min(#(options.Options or {}), 5)
+                    local listHeight = math.max(itemCount * 28, 28)
                     DropdownList.Visible = true
-                    DropdownList.Size = UDim2.new(1, -20, 0, itemCount * 28)
-                    CreateTween(DropdownFrame, {Size = UDim2.new(1, -10, 0, 60 + itemCount * 28)}, 0.2)
-                    CreateTween(DropdownIcon, {Rotation = 180}, 0.2)
+                    DropdownList.Size = UDim2.new(1, -16, 0, listHeight)
+                    CreateTween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 62 + listHeight)}, 0.25, Enum.EasingStyle.Back)
+                    CreateTween(DropdownArrow, {Rotation = 180}, 0.2)
                 else
-                    CreateTween(DropdownFrame, {Size = UDim2.new(1, -10, 0, 55)}, 0.2)
-                    CreateTween(DropdownIcon, {Rotation = 0}, 0.2)
+                    CreateTween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 58)}, 0.2)
+                    CreateTween(DropdownArrow, {Rotation = 0}, 0.2)
                     task.wait(0.2)
                     DropdownList.Visible = false
                 end
             end
             
             DropdownButton.MouseButton1Click:Connect(function()
-                expanded = not expanded
-                updateDropdown()
+                PlaySound(KrosLib.Settings.Sounds.Click)
+                toggleDropdown()
             end)
             
-            local function createOptions()
+            local function createOptionButtons()
                 for _, child in pairs(DropdownList:GetChildren()) do
                     if child:IsA("TextButton") then
                         child:Destroy()
@@ -845,23 +1302,31 @@ function KrosLib:CreateWindow(options)
                 end
                 
                 for _, option in ipairs(options.Options or {}) do
-                    local OptionButton = Instance.new("TextButton")
-                    OptionButton.Size = UDim2.new(1, 0, 0, 26)
-                    OptionButton.BackgroundColor3 = KrosLib.Settings.Colors.Primary
-                    OptionButton.BackgroundTransparency = 0.8
-                    OptionButton.Text = "  " .. option
-                    OptionButton.TextColor3 = KrosLib.Settings.Colors.Text
-                    OptionButton.TextXAlignment = Enum.TextXAlignment.Left
-                    OptionButton.Font = Enum.Font.Gotham
-                    OptionButton.TextSize = 12
-                    OptionButton.Parent = DropdownList
-                    AddUICorner(OptionButton, 4)
+                    local OptionBtn = Instance.new("TextButton")
+                    OptionBtn.Size = UDim2.new(1, -4, 0, 26)
+                    OptionBtn.BackgroundColor3 = KrosLib.Settings.Colors.Primary
+                    OptionBtn.BackgroundTransparency = 0.7
+                    OptionBtn.Text = "  " .. tostring(option)
+                    OptionBtn.TextColor3 = KrosLib.Settings.Colors.Text
+                    OptionBtn.TextXAlignment = Enum.TextXAlignment.Left
+                    OptionBtn.Font = Enum.Font.Gotham
+                    OptionBtn.TextSize = 12
+                    OptionBtn.Parent = DropdownList
+                    AddUICorner(OptionBtn, 4)
                     
-                    OptionButton.MouseButton1Click:Connect(function()
+                    OptionBtn.MouseEnter:Connect(function()
+                        CreateTween(OptionBtn, {BackgroundTransparency = 0.4, BackgroundColor3 = KrosLib.Settings.Colors.Accent}, 0.1)
+                    end)
+                    OptionBtn.MouseLeave:Connect(function()
+                        CreateTween(OptionBtn, {BackgroundTransparency = 0.7, BackgroundColor3 = KrosLib.Settings.Colors.Primary}, 0.1)
+                    end)
+                    
+                    OptionBtn.MouseButton1Click:Connect(function()
+                        PlaySound(KrosLib.Settings.Sounds.Click)
                         selectedValue = option
-                        DropdownButton.Text = "  " .. option
-                        expanded = false
-                        updateDropdown()
+                        DropdownButton.Text = "  " .. tostring(option)
+                        expanded = true
+                        toggleDropdown()
                         if options.Callback then
                             options.Callback(option)
                         end
@@ -869,98 +1334,127 @@ function KrosLib:CreateWindow(options)
                 end
             end
             
-            createOptions()
+            createOptionButtons()
             
-            return {
+            local DropdownObj = {
                 Frame = DropdownFrame,
                 GetValue = function()
                     return selectedValue
                 end,
-                SetValue = function(value)
-                    selectedValue = value
-                    DropdownButton.Text = "  " .. value
+                SetValue = function(val)
+                    selectedValue = val
+                    DropdownButton.Text = "  " .. tostring(val)
                 end,
                 Refresh = function(newOptions)
                     options.Options = newOptions
-                    createOptions()
+                    createOptionButtons()
                 end
             }
+            
+            if options.Flag then
+                Window.Flags[options.Flag] = DropdownObj
+            end
+            
+            return DropdownObj
         end
+        
+        -- ═══════════════════════════════════════════════════════
+        -- LABEL
+        -- ═══════════════════════════════════════════════════════
         
         function Tab:CreateLabel(text)
             local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, -10, 0, 20)
+            Label.Size = UDim2.new(1, 0, 0, 20)
             Label.BackgroundTransparency = 1
-            Label.Text = text
-            Label.TextColor3 = KrosLib.Settings.Colors.Text
+            Label.Text = text or ""
+            Label.TextColor3 = KrosLib.Settings.Colors.TextDark
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.Font = Enum.Font.Gotham
-            Label.TextSize = 13
+            Label.TextSize = 12
             Label.Parent = TabContent
+            Label:SetAttribute("OriginalTransparency", 1)
             
             return {
                 Set = function(newText)
-                    Label.Text = newText
+                    Label.Text = tostring(newText)
+                end,
+                GetText = function()
+                    return Label.Text
                 end
             }
         end
         
+        -- ═══════════════════════════════════════════════════════
+        -- PARAGRAPH
+        -- ═══════════════════════════════════════════════════════
+        
         function Tab:CreateParagraph(options)
             local ParagraphFrame = Instance.new("Frame")
-            ParagraphFrame.Size = UDim2.new(1, -10, 0, 60)
+            ParagraphFrame.Size = UDim2.new(1, 0, 0, 65)
             ParagraphFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
             ParagraphFrame.BackgroundTransparency = 0.5
             ParagraphFrame.Parent = TabContent
-            AddGlassEffect(ParagraphFrame)
+            ParagraphFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(ParagraphFrame, 8)
+            AddUIStroke(ParagraphFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
             
-            local Title = Instance.new("TextLabel")
-            Title.Size = UDim2.new(1, -10, 0, 20)
-            Title.Position = UDim2.new(0, 5, 0, 5)
-            Title.BackgroundTransparency = 1
-            Title.Text = options.Title or "Paragraph"
-            Title.TextColor3 = KrosLib.Settings.Colors.Text
-            Title.TextXAlignment = Enum.TextXAlignment.Left
-            Title.Font = Enum.Font.GothamBold
-            Title.TextSize = 13
-            Title.Parent = ParagraphFrame
+            local PTitle = Instance.new("TextLabel")
+            PTitle.Size = UDim2.new(1, -12, 0, 18)
+            PTitle.Position = UDim2.new(0, 6, 0, 6)
+            PTitle.BackgroundTransparency = 1
+            PTitle.Text = options.Title or ""
+            PTitle.TextColor3 = KrosLib.Settings.Colors.Text
+            PTitle.TextXAlignment = Enum.TextXAlignment.Left
+            PTitle.Font = Enum.Font.GothamBold
+            PTitle.TextSize = 13
+            PTitle.Parent = ParagraphFrame
             
-            local Content = Instance.new("TextLabel")
-            Content.Size = UDim2.new(1, -10, 0, 30)
-            Content.Position = UDim2.new(0, 5, 0, 25)
-            Content.BackgroundTransparency = 1
-            Content.Text = options.Content or ""
-            Content.TextColor3 = KrosLib.Settings.Colors.TextDark
-            Content.TextXAlignment = Enum.TextXAlignment.Left
-            Content.TextYAlignment = Enum.TextYAlignment.Top
-            Content.Font = Enum.Font.Gotham
-            Content.TextSize = 11
-            Content.TextWrapped = true
-            Content.Parent = ParagraphFrame
+            local PContent = Instance.new("TextLabel")
+            PContent.Size = UDim2.new(1, -12, 0, 35)
+            PContent.Position = UDim2.new(0, 6, 0, 26)
+            PContent.BackgroundTransparency = 1
+            PContent.Text = options.Content or ""
+            PContent.TextColor3 = KrosLib.Settings.Colors.TextDark
+            PContent.TextXAlignment = Enum.TextXAlignment.Left
+            PContent.TextYAlignment = Enum.TextYAlignment.Top
+            PContent.Font = Enum.Font.Gotham
+            PContent.TextSize = 11
+            PContent.TextWrapped = true
+            PContent.Parent = ParagraphFrame
             
+            -- Auto resize
             task.spawn(function()
-                task.wait()
-                local textBounds = Content.TextBounds
-                if textBounds then
-                    local newHeight = math.max(60, textBounds.Y + 35)
-                    ParagraphFrame.Size = UDim2.new(1, -10, 0, newHeight)
-                    Content.Size = UDim2.new(1, -10, 0, newHeight - 30)
-                end
+                task.wait(0.1)
+                pcall(function()
+                    local bounds = PContent.TextBounds
+                    if bounds then
+                        local newHeight = math.max(65, bounds.Y + 38)
+                        ParagraphFrame.Size = UDim2.new(1, 0, 0, newHeight)
+                        PContent.Size = UDim2.new(1, -12, 0, newHeight - 32)
+                    end
+                end)
             end)
             
             return ParagraphFrame
         end
         
+        -- ═══════════════════════════════════════════════════════
+        -- KEYBIND
+        -- ═══════════════════════════════════════════════════════
+        
         function Tab:CreateKeybind(options)
             local KeybindFrame = Instance.new("Frame")
-            KeybindFrame.Size = UDim2.new(1, -10, 0, 35)
+            KeybindFrame.Size = UDim2.new(1, 0, 0, 36)
             KeybindFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
             KeybindFrame.BackgroundTransparency = 0.5
             KeybindFrame.Parent = TabContent
-            AddGlassEffect(KeybindFrame)
+            KeybindFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(KeybindFrame, 8)
+            AddUIStroke(KeybindFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
             
             local KeybindLabel = Instance.new("TextLabel")
-            KeybindLabel.Size = UDim2.new(0.5, 0, 1, 0)
-            KeybindLabel.Position = UDim2.new(0, 10, 0, 0)
+            KeybindLabel.Size = UDim2.new(1, -100, 1, 0)
+            KeybindLabel.Position = UDim2.new(0, 12, 0, 0)
             KeybindLabel.BackgroundTransparency = 1
             KeybindLabel.Text = options.Name or "Keybind"
             KeybindLabel.TextColor3 = KrosLib.Settings.Colors.Text
@@ -970,23 +1464,30 @@ function KrosLib:CreateWindow(options)
             KeybindLabel.Parent = KeybindFrame
             
             local KeybindButton = Instance.new("TextButton")
-            KeybindButton.Size = UDim2.new(0, 80, 0, 25)
-            KeybindButton.Position = UDim2.new(1, -90, 0.5, -12)
+            KeybindButton.Size = UDim2.new(0, 75, 0, 24)
+            KeybindButton.Position = UDim2.new(1, -85, 0.5, -12)
             KeybindButton.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
+            KeybindButton.BackgroundTransparency = 0.3
             KeybindButton.Text = options.CurrentKeybind or "None"
             KeybindButton.TextColor3 = KrosLib.Settings.Colors.Text
-            KeybindButton.Font = Enum.Font.Gotham
-            KeybindButton.TextSize = 12
+            KeybindButton.Font = Enum.Font.GothamBold
+            KeybindButton.TextSize = 11
             KeybindButton.Parent = KeybindFrame
-            AddUICorner(KeybindButton, 5)
+            AddUICorner(KeybindButton, 6)
             
             local binding = false
-            local currentKey = options.CurrentKeybind and Enum.KeyCode[options.CurrentKeybind] or nil
+            local currentKey = nil
+            
+            pcall(function()
+                if options.CurrentKeybind and options.CurrentKeybind ~= "None" then
+                    currentKey = Enum.KeyCode[options.CurrentKeybind]
+                end
+            end)
             
             KeybindButton.MouseButton1Click:Connect(function()
                 binding = true
                 KeybindButton.Text = "..."
-                CreateTween(KeybindButton, {BackgroundColor3 = KrosLib.Settings.Colors.Accent}, 0.2)
+                CreateTween(KeybindButton, {BackgroundColor3 = KrosLib.Settings.Colors.Accent, BackgroundTransparency = 0.1}, 0.2)
             end)
             
             UserInputService.InputBegan:Connect(function(input, processed)
@@ -995,7 +1496,7 @@ function KrosLib:CreateWindow(options)
                         currentKey = input.KeyCode
                         KeybindButton.Text = currentKey.Name
                         binding = false
-                        CreateTween(KeybindButton, {BackgroundColor3 = KrosLib.Settings.Colors.Secondary}, 0.2)
+                        CreateTween(KeybindButton, {BackgroundColor3 = KrosLib.Settings.Colors.Secondary, BackgroundTransparency = 0.3}, 0.2)
                         if options.Callback then
                             options.Callback(currentKey.Name)
                         end
@@ -1010,77 +1511,89 @@ function KrosLib:CreateWindow(options)
             return KeybindFrame
         end
         
+        -- ═══════════════════════════════════════════════════════
+        -- TABLE
+        -- ═══════════════════════════════════════════════════════
+        
         function Tab:CreateTable(options)
             local TableFrame = Instance.new("Frame")
-            TableFrame.Size = UDim2.new(1, -10, 0, 200)
+            TableFrame.Size = UDim2.new(1, 0, 0, 180)
             TableFrame.BackgroundColor3 = KrosLib.Settings.Colors.Primary
             TableFrame.BackgroundTransparency = 0.5
             TableFrame.Parent = TabContent
-            AddGlassEffect(TableFrame)
+            TableFrame:SetAttribute("OriginalTransparency", 0.5)
+            AddUICorner(TableFrame, 8)
+            AddUIStroke(TableFrame, Color3.fromRGB(255, 255, 255), 1, 0.92)
             
             local TableTitle = Instance.new("TextLabel")
-            TableTitle.Size = UDim2.new(1, 0, 0, 25)
+            TableTitle.Size = UDim2.new(1, -12, 0, 22)
+            TableTitle.Position = UDim2.new(0, 6, 0, 4)
             TableTitle.BackgroundTransparency = 1
             TableTitle.Text = options.Name or "Table"
             TableTitle.TextColor3 = KrosLib.Settings.Colors.Text
             TableTitle.Font = Enum.Font.GothamBold
-            TableTitle.TextSize = 13
+            TableTitle.TextSize = 12
+            TableTitle.TextXAlignment = Enum.TextXAlignment.Left
             TableTitle.Parent = TableFrame
             
-            local TableContent = Instance.new("ScrollingFrame")
-            TableContent.Size = UDim2.new(1, -10, 1, -30)
-            TableContent.Position = UDim2.new(0, 5, 0, 25)
-            TableContent.BackgroundTransparency = 1
-            TableContent.ScrollBarThickness = 3
-            TableContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            TableContent.Parent = TableFrame
+            local TableScroll = Instance.new("ScrollingFrame")
+            TableScroll.Size = UDim2.new(1, -12, 1, -32)
+            TableScroll.Position = UDim2.new(0, 6, 0, 28)
+            TableScroll.BackgroundTransparency = 1
+            TableScroll.ScrollBarThickness = 3
+            TableScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            TableScroll.Parent = TableFrame
             
-            local TableLayout = Instance.new("UIListLayout")
-            TableLayout.Parent = TableContent
+            local TLayout = Instance.new("UIListLayout")
+            TLayout.Padding = UDim.new(0, 1)
+            TLayout.Parent = TableScroll
             
+            -- Header
             if options.Headers then
-                local HeaderFrame = Instance.new("Frame")
-                HeaderFrame.Size = UDim2.new(1, 0, 0, 25)
-                HeaderFrame.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
-                HeaderFrame.BackgroundTransparency = 0.5
-                HeaderFrame.Parent = TableContent
-                AddUICorner(HeaderFrame, 4)
+                local HeaderRow = Instance.new("Frame")
+                HeaderRow.Size = UDim2.new(1, 0, 0, 24)
+                HeaderRow.BackgroundColor3 = KrosLib.Settings.Colors.Accent
+                HeaderRow.BackgroundTransparency = 0.8
+                HeaderRow.Parent = TableScroll
+                AddUICorner(HeaderRow, 4)
                 
-                local HeaderLayout = Instance.new("UIListLayout")
-                HeaderLayout.FillDirection = Enum.FillDirection.Horizontal
-                HeaderLayout.Parent = HeaderFrame
+                local HLayout = Instance.new("UIListLayout")
+                HLayout.FillDirection = Enum.FillDirection.Horizontal
+                HLayout.Parent = HeaderRow
                 
-                for _, header in ipairs(options.Headers) do
-                    local HeaderLabel = Instance.new("TextLabel")
-                    HeaderLabel.Size = UDim2.new(1/#options.Headers, 0, 1, 0)
-                    HeaderLabel.BackgroundTransparency = 1
-                    HeaderLabel.Text = header
-                    HeaderLabel.TextColor3 = KrosLib.Settings.Colors.Text
-                    HeaderLabel.Font = Enum.Font.GothamBold
-                    HeaderLabel.TextSize = 11
-                    HeaderLabel.Parent = HeaderFrame
+                for _, h in ipairs(options.Headers) do
+                    local HL = Instance.new("TextLabel")
+                    HL.Size = UDim2.new(1/#options.Headers, 0, 1, 0)
+                    HL.BackgroundTransparency = 1
+                    HL.Text = tostring(h)
+                    HL.TextColor3 = KrosLib.Settings.Colors.Text
+                    HL.Font = Enum.Font.GothamBold
+                    HL.TextSize = 11
+                    HL.Parent = HeaderRow
                 end
             end
             
             local function addRow(data)
-                local RowFrame = Instance.new("Frame")
-                RowFrame.Size = UDim2.new(1, 0, 0, 20)
-                RowFrame.BackgroundTransparency = 1
-                RowFrame.Parent = TableContent
+                local Row = Instance.new("Frame")
+                Row.Size = UDim2.new(1, 0, 0, 22)
+                Row.BackgroundColor3 = KrosLib.Settings.Colors.Secondary
+                Row.BackgroundTransparency = 0.8
+                Row.Parent = TableScroll
+                AddUICorner(Row, 3)
                 
-                local RowLayout = Instance.new("UIListLayout")
-                RowLayout.FillDirection = Enum.FillDirection.Horizontal
-                RowLayout.Parent = RowFrame
+                local RLayout = Instance.new("UIListLayout")
+                RLayout.FillDirection = Enum.FillDirection.Horizontal
+                RLayout.Parent = Row
                 
-                for _, value in ipairs(data) do
-                    local CellLabel = Instance.new("TextLabel")
-                    CellLabel.Size = UDim2.new(1/#data, 0, 1, 0)
-                    CellLabel.BackgroundTransparency = 1
-                    CellLabel.Text = tostring(value)
-                    CellLabel.TextColor3 = KrosLib.Settings.Colors.TextDark
-                    CellLabel.Font = Enum.Font.Gotham
-                    CellLabel.TextSize = 10
-                    CellLabel.Parent = RowFrame
+                for _, v in ipairs(data) do
+                    local Cell = Instance.new("TextLabel")
+                    Cell.Size = UDim2.new(1/#data, 0, 1, 0)
+                    Cell.BackgroundTransparency = 1
+                    Cell.Text = tostring(v)
+                    Cell.TextColor3 = KrosLib.Settings.Colors.TextDark
+                    Cell.Font = Enum.Font.Gotham
+                    Cell.TextSize = 10
+                    Cell.Parent = Row
                 end
             end
             
@@ -1093,7 +1606,7 @@ function KrosLib:CreateWindow(options)
             return {
                 AddRow = addRow,
                 Clear = function()
-                    for _, child in pairs(TableContent:GetChildren()) do
+                    for _, child in pairs(TableScroll:GetChildren()) do
                         if child:IsA("Frame") then
                             child:Destroy()
                         end
@@ -1102,12 +1615,13 @@ function KrosLib:CreateWindow(options)
             }
         end
         
+        -- Add tab to window
         table.insert(Window.Tabs, Tab)
         
-        -- Auto select first tab (FIXED)
+        -- Auto select first tab
         if #Window.Tabs == 1 then
             task.spawn(function()
-                task.wait()
+                task.wait(0.1)
                 selectTab()
             end)
         end
@@ -1115,46 +1629,76 @@ function KrosLib:CreateWindow(options)
         return Tab
     end
     
+    -- ═══════════════════════════════════════════════════════════
+    -- WINDOW METHODS
+    -- ═══════════════════════════════════════════════════════════
+    
     function Window:Destroy()
+        PlaySound(KrosLib.Settings.Sounds.Close)
+        CreateTween(Main, {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            BackgroundTransparency = 1
+        }, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        task.wait(0.35)
         ScreenGui:Destroy()
     end
     
-    Window.Main = Main
-    Window.ScreenGui = ScreenGui
+    function Window:SelectTab(tabName)
+        for _, tab in pairs(self.Tabs) do
+            if tab.Name == tabName then
+                tab.Select()
+                break
+            end
+        end
+    end
+    
+    function Window:GetFlag(flag)
+        return self.Flags[flag]
+    end
+    
     return Window
 end
 
--- Additional methods
+-- ═══════════════════════════════════════════════════════════════
+-- LIBRARY SETTINGS METHODS
+-- ═══════════════════════════════════════════════════════════════
+
 function KrosLib:SetDefaultIcon(icon)
-    KrosLib.Settings.DefaultIcon = icon
+    self.Settings.DefaultIcon = icon
 end
 
 function KrosLib:SetAvatarVisible(visible)
-    KrosLib.Settings.AvatarVisible = visible
+    self.Settings.AvatarVisible = visible
 end
 
 function KrosLib:SetReopenKey(key)
-    KrosLib.Settings.ReopenKey = key
+    self.Settings.ReopenKey = key
 end
 
 function KrosLib:SetSounds(sounds)
-    KrosLib.Settings.Sounds = sounds
+    for k, v in pairs(sounds) do
+        self.Settings.Sounds[k] = v
+    end
 end
 
 function KrosLib:SetNotificationSounds(sounds)
-    KrosLib.Settings.NotificationSounds = sounds
+    for k, v in pairs(sounds) do
+        self.Settings.NotificationSounds[k] = v
+    end
 end
 
 function KrosLib:SetKeySystem(config)
-    KrosLib.Settings.KeySystem = config
+    self.Settings.KeySystem = config
 end
 
 function KrosLib:Unload()
     if NotificationHolder then
         NotificationHolder:Destroy()
+        NotificationHolder = nil
     end
     for _, gui in pairs(CoreGui:GetChildren()) do
-        if gui.Name == "KrosLib" or gui.Name == "KrosLibNotifications" then
+        if gui.Name:find("KrosLib") then
             gui:Destroy()
         end
     end
